@@ -1,15 +1,67 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+@theme {
+  --color-background: #ffffff;
+  --color-foreground: #171717;
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* İvosis Renk Paleti */
+  --color-ivosis-50: #effafc;
+  --color-ivosis-100: #d6f3f7;
+  --color-ivosis-200: #b3e6ee;
+  --color-ivosis-300: #7ed2e2;
+  --color-ivosis-400: #42b6ce;
+  --color-ivosis-500: #279ab3;
+  --color-ivosis-600: #24809c;
+  --color-ivosis-700: #23657b;
+  --color-ivosis-800: #245366;
+  --color-ivosis-900: #224657;
+  --color-ivosis-950: #112d3b;
+
+  /* Natural Renk Paleti */
+  --color-natural-50: #f6f6f6;
+  --color-natural-100: #e7e7e7;
+  --color-natural-200: #d1d1d1;
+  --color-natural-300: #b0b0b0;
+  --color-natural-400: #888888;
+  --color-natural-500: #6d6d6d;
+  --color-natural-600: #5d5d5d;
+  --color-natural-700: #4f4f4f;
+  --color-natural-800: #454545;
+  --color-natural-900: #3d3d3d;
+  --color-natural-950: #000000;
+
+  /* Yeşil Renk Paleti */
+  --color-greens-50: #f1f8f4;
+  --color-greens-100: #dcefe3;
+  --color-greens-200: #bbdfc9;
+  --color-greens-300: #8fc6a9;
+  --color-greens-400: #5fa884;
+  --color-greens-500: #40916c;
+  --color-greens-600: #2c6f52;
+  --color-greens-700: #235943;
+  --color-greens-800: #1e4736;
+  --color-greens-900: #193b2e;
+  --color-greens-950: #0d2119;
+
+  /* Kırmızı Renk Paleti */
+  --color-reds-50: #fdf3f3;
+  --color-reds-100: #fbe6e5;
+  --color-reds-200: #f9d0cf;
+  --color-reds-300: #f4afad;
+  --color-reds-400: #eb817e;
+  --color-reds-500: #df5754;
+  --color-reds-600: #cb3b37;
+  --color-reds-700: #a22c29;
+  --color-reds-800: #8d2a77;
+  --color-reds-900: #762826;
+  --color-reds-950: #3f1110;
+}
+
+:root {
+  --background: var(--color-background);
+  --foreground: var(--color-foreground);
 }
 
 @media (prefers-color-scheme: dark) {

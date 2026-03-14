@@ -39,14 +39,21 @@ export const loginUser = async (email: string, password: string) => {
 export const registerUser = async (name: string, email: string, password: string) => {
   try {
     console.log("Sending register request to:", api.defaults.baseURL + "/register");
+    
+    // Ad ve soyad ayrımı yap
+    const nameParts = name.trim().split(' ');
+    const firstName = nameParts[0] || '';
+    const surname = nameParts.slice(1).join(' ') || '';
+    
     const response = await api.post("/register", {
-      name,
+      name: firstName,
+      surname: surname,
       email,
       password,
     });
     return response.data;
   } catch (error) {
-    console.error("Register error:", error);
+    console.error("Kullanıcı Kayıt Hatası:", error);
     throw error;
   }
 };

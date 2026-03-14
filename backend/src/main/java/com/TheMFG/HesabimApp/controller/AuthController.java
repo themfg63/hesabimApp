@@ -31,8 +31,8 @@ public class AuthController {
   @PostMapping("/register")
   public ResponseEntity<?> register(@RequestBody UserCreateDto dto){
     try {
-      String token = authService.register(dto);
-      return ResponseEntity.ok(token);
+      AuthResponseDto response = authService.register(dto);
+      return ResponseEntity.ok(response);
     } catch (RuntimeException e) {
       return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
     }

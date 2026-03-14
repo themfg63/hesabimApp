@@ -22,7 +22,7 @@ public class AuthService {
   private final PasswordEncoder passwordEncoder;
   private final JwtService jwtService;
 
-  public String register(UserCreateDto dto) {
+  public AuthResponseDto register(UserCreateDto dto) {
     // Check if email already exists
     if(userRepository.findByEmail(dto.getEmail()).isPresent()){
       throw new RuntimeException("Email already exists");
@@ -37,7 +37,11 @@ public class AuthService {
               .build();
 
     userRepository.save(user);
-    return jwtService.generateToken(user.getEmail());
+    
+    String accessToken = jwtService.generateToken(user.getEmail());
+    RefreshToken refreshToken = refreshTokenService.createRefreshToken(user);
+    
+    return new AuthResponseDto(accessToken, refreshToken.getToken());
   }
 
   public AuthResponseDto login(LoginRequest request){

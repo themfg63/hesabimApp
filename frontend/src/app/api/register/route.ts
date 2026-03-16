@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
+const BACKEND_BASE_URL = process.env.BACKEND_API_URL || "http://localhost:8080";
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -14,7 +16,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Backend API'ye istek gönder
-    const response = await fetch("http://localhost:8080/api/register", {
+    const response = await fetch(`${BACKEND_BASE_URL}/api/register`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -26,15 +28,15 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok) {
       return NextResponse.json(
-        { error: data.message || "Kayıt başarısız" },
+        { message: data.message || "Kayıt başarısız" },
         { status: response.status }
       );
     }
 
     return NextResponse.json(data);
-  } catch (error) {
+  } catch {
     return NextResponse.json(
-      { error: "Sunucu hatası" },
+      { message: "Sunucu hatası" },
       { status: 500 }
     );
   }

@@ -1,6 +1,7 @@
 package com.TheMFG.HesabimApp.controller;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -31,20 +32,28 @@ public class AuthController {
   @PostMapping("/register")
   public ResponseEntity<?> register(@RequestBody UserCreateDto dto){
     try {
+      if (dto.getName() == null || dto.getName().isBlank() || dto.getEmail() == null || dto.getEmail().isBlank() || dto.getPassword() == null || dto.getPassword().isBlank()) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", "Name, email ve password zorunludur"));
+      }
+
       AuthResponseDto response = authService.register(dto);
       return ResponseEntity.ok(response);
     } catch (RuntimeException e) {
-      return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+      return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", e.getMessage()));
     }
   }
 
   @PostMapping("/login")
   public ResponseEntity<?> login(@RequestBody LoginRequest request){
     try {
+      if (request.getEmail() == null || request.getEmail().isBlank() || request.getPassword() == null || request.getPassword().isBlank()) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", "Email ve password zorunludur"));
+      }
+
       AuthResponseDto response = authService.login(request);
       return ResponseEntity.ok(response);
     } catch (RuntimeException e) {
-      return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(e.getMessage());
+      return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", e.getMessage()));
     }
   }
 

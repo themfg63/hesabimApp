@@ -8,4 +8,6 @@ import com.TheMFG.HesabimApp.entity.User;
 
 public interface UserRepository extends JpaRepository<User,Long>{
   Optional<User> findByEmail(String email);
+  Optional<User> findByEmailAndActiveTrue(String email);
+  boolean existsByEmail(String email);
 }

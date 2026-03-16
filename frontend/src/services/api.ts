@@ -1,17 +1,8 @@
 import axios from "axios";
 
-// Mobil cihazlardan erişim için dinamik baseURL
-const getBaseURL = () => {
-  // Production ortamı için
-  if (process.env.NEXT_PUBLIC_API_URL) {
-    console.log("Using API URL from env:", process.env.NEXT_PUBLIC_API_URL);
-    return process.env.NEXT_PUBLIC_API_URL;
-  }
-  
-  // Development için - bilgisayarınızın IP adresini buraya yazın
-  console.log("Using default localhost API URL");
-  return "http://localhost:8080/api";
-};
+// İstemci tarafında her zaman Next.js API route'larına git (same-origin).
+// Böylece telefonda localhost problemi yaşanmaz.
+const getBaseURL = () => "/api";
 
 const api = axios.create({
   baseURL: getBaseURL(),

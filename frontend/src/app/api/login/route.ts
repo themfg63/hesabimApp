@@ -7,6 +7,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { email, password } = body;
 
+    console.log("BACKEND_BASE_URL:", BACKEND_BASE_URL); // Debug için
+
     // Backend API'ye istek gönder
     const response = await fetch(`${BACKEND_BASE_URL}/api/login`, {
       method: "POST",
@@ -26,9 +28,14 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(data);
-  } catch {
+  } catch (error) {
+    console.error("Login route error details:", error); // Detaylı hata
     return NextResponse.json(
-      { message: "Internal server error" },
+      { 
+        message: "Internal server error",
+        error: error instanceof Error ? error.message : "Unknown error",
+        backend_url: BACKEND_BASE_URL
+      },
       { status: 500 }
     );
   }

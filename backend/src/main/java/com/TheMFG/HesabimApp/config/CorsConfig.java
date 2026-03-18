@@ -13,7 +13,8 @@ public class CorsConfig implements WebMvcConfigurer {
         .allowedOrigins(
           "http://localhost:3000",
           "http://192.168.1.106:3000",
-          "https://hesabim-1ks65zlgi-themfg63-9294s-projects.vercel.app"
+          "https://hesabim-app.vercel.app",
+          "https://*.vercel.app"  // Tüm Vercel subdomain'lerini kapsar
         )
         .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
         .allowedHeaders("*")

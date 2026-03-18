@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const BACKEND_BASE_URL = process.env.BACKEND_API_URL || "http://localhost:8080";
+const BACKEND_BASE_URL = "https://hesabimapp-production.up.railway.app";
 
 export async function POST(request: NextRequest) {
   try {

@@ -31,3 +31,16 @@ WHERE NOT EXISTS (
   WHERE ur.user_id = u.id
     AND ur.role_id = r.id
 );
+
+CREATE TABLE IF NOT EXISTS stocks (
+  id BIGSERIAL PRIMARY KEY,
+  user_id BIGINT NOT NULL,
+  stock_name VARCHAR(50) NOT NULL,
+  purchase_price NUMERIC(18, 2) NOT NULL CHECK (purchase_price >= 0),
+  current_price NUMERIC(18, 2) NOT NULL CHECK (current_price >= 0),
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  CONSTRAINT fk_stocks_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT uq_stocks_user_stock UNIQUE (user_id, stock_name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_stocks_user_id ON stocks(user_id);

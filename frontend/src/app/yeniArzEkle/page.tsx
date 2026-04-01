@@ -1,18 +1,104 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { IconArrowLeft, IconCurrencyDollar, IconTrendingUp, IconTrendingDown } from "@tabler/icons-react";
+import { IconArrowLeft, IconPlus, IconTrash } from "@tabler/icons-react";
+
+import { createIpo, createIpoPosition, getAccounts } from "@/services/api";
+import type { Account } from "@/types/account";
+
+type PositionDraft = {
+  accountId: string;
+  lotCount: string;
+  buyPrice: string;
+  notes: string;
+};
+
+const emptyPositionDraft = (): PositionDraft => ({
+  accountId: "",
+  lotCount: "",
+  buyPrice: "",
+  notes: "",
+});
 
 export default function YeniArzEkle() {
   const router = useRouter();
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [code, setCode] = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const [offeringPrice, setOfferingPrice] = useState("");
+  const [currentPrice, setCurrentPrice] = useState("");
+  const [currency, setCurrency] = useState("TRY");
+  const [positions, setPositions] = useState<PositionDraft[]>([emptyPositionDraft()]);
+  const [saving, setSaving] = useState(false);
+  const [loadingAccounts, setLoadingAccounts] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) {
       router.push("/login");
+      return;
     }
+
+    const loadAccounts = async () => {
+      try {
+        const response = await getAccounts();
+        setAccounts(response);
+      } catch (loadError) {
+        setError(loadError instanceof Error ? loadError.message : "Hesaplar yuklenemedi");
+      } finally {
+        setLoadingAccounts(false);
+      }
+    };
+
+    void loadAccounts();
   }, [router]);
+
+  const updatePosition = (index: number, field: keyof PositionDraft, value: string) => {
+    setPositions((current) => current.map((item, itemIndex) => (itemIndex === index ? { ...item, [field]: value } : item)));
+  };
+
+  const addPositionRow = () => {
+    setPositions((current) => [...current, emptyPositionDraft()]);
+  };
+
+  const removePositionRow = (index: number) => {
+    setPositions((current) => (current.length === 1 ? current : current.filter((_, itemIndex) => itemIndex !== index)));
+  };
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    try {
+      setSaving(true);
+      setError(null);
+
+      const createdIpo = await createIpo({
+        code,
+        companyName,
+        offeringPrice: Number(offeringPrice),
+        currentPrice: currentPrice ? Number(currentPrice) : Number(offeringPrice),
+        currency,
+      });
+
+      const validPositions = positions.filter((position) => position.accountId && position.lotCount);
+      for (const position of validPositions) {
+        await createIpoPosition(createdIpo.id, {
+          accountId: Number(position.accountId),
+          lotCount: Number(position.lotCount),
+          buyPrice: position.buyPrice ? Number(position.buyPrice) : Number(offeringPrice),
+          notes: position.notes || undefined,
+        });
+      }
+
+      router.push(`/halkaArzListesi/${createdIpo.id}`);
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Arz kaydedilemedi");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-linear-to-br from-ivosis-900 via-ivosis-800 to-natural-900">
@@ -50,6 +136,119 @@ export default function YeniArzEkle() {
 
         {/* Main Content */}
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <form className="grid gap-8 lg:grid-cols-[1fr_1.1fr]" onSubmit={handleSubmit}>
+            <section className="rounded-3xl border border-white/15 bg-[#0d2336]/85 p-6 backdrop-blur-xl">
+              <p className="text-sm uppercase tracking-[0.3em] text-white/45">Arz Bilgisi</p>
+              <h2 className="mt-2 text-3xl font-bold text-white">Yeni Halka Arz Ekle</h2>
+
+              <div className="mt-8 space-y-4">
+                <label className="block">
+                  <span className="mb-2 block text-sm font-medium text-white/75">Arz Kodu</span>
+                  <input value={code} onChange={(event) => setCode(event.target.value.toUpperCase())} className="w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-white outline-none transition focus:border-cyan-300/60" placeholder="AAGYO" required />
+                </label>
+
+                <label className="block">
+                  <span className="mb-2 block text-sm font-medium text-white/75">Şirket Adı</span>
+                  <input value={companyName} onChange={(event) => setCompanyName(event.target.value)} className="w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-white outline-none transition focus:border-cyan-300/60" placeholder="Sirket adi" />
+                </label>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-medium text-white/75">Arz Fiyatı</span>
+                    <input value={offeringPrice} onChange={(event) => setOfferingPrice(event.target.value)} type="number" step="0.01" min="0" className="w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-white outline-none transition focus:border-cyan-300/60" required />
+                  </label>
+
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-medium text-white/75">Güncel Fiyat</span>
+                    <input value={currentPrice} onChange={(event) => setCurrentPrice(event.target.value)} type="number" step="0.01" min="0" className="w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-white outline-none transition focus:border-cyan-300/60" placeholder="Arz fiyatı için boş bırak" />
+                  </label>
+                </div>
+
+                <label className="block">
+                  <span className="mb-2 block text-sm font-medium text-white/75">Para Birimi</span>
+                  <select value={currency} onChange={(event) => setCurrency(event.target.value)} className="w-full rounded-2xl border border-white/15 bg-[#0f3550] px-4 py-3 text-white outline-none transition focus:border-cyan-300/60">
+                    <option value="TRY">TRY</option>
+                    <option value="USD">USD</option>
+                    <option value="EUR">EUR</option>
+                  </select>
+                </label>
+              </div>
+            </section>
+
+            <section className="rounded-3xl border border-white/15 bg-white/10 p-6 backdrop-blur-xl">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm uppercase tracking-[0.3em] text-white/45">Hesap Dağılımı</p>
+                  <h2 className="mt-2 text-3xl font-bold text-white">Hesap Ekle</h2>
+                </div>
+                <button type="button" onClick={addPositionRow} className="inline-flex items-center gap-2 rounded-2xl bg-cyan-300 px-4 py-2 font-semibold text-slate-900 transition hover:bg-cyan-200">
+                  <IconPlus className="h-4 w-4" />
+                  Satır
+                </button>
+              </div>
+
+              <div className="mt-6 space-y-4">
+                {loadingAccounts ? <div className="rounded-2xl border border-white/10 bg-black/10 p-4 text-white/70">Hesaplar Yükleniyor...</div> : null}
+                {!loadingAccounts && accounts.length === 0 ? (
+                  <div className="rounded-2xl border border-amber-300/30 bg-amber-950/20 p-4 text-sm text-amber-100">
+                    Arz oluşturmadan önce en az bir hesap eklemelisin. Hesaplarım sayfasından hesap ekleyebilirsin.
+                  </div>
+                ) : null}
+
+                {positions.map((position, index) => (
+                  <div key={`${index}-${position.accountId}`} className="rounded-2xl border border-white/15 bg-[#071a29]/80 p-4">
+                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                      <label className="block">
+                        <span className="mb-2 block text-sm text-white/70">Hesap</span>
+                        <select value={position.accountId} onChange={(event) => updatePosition(index, "accountId", event.target.value)} className="w-full rounded-2xl border border-white/15 bg-[#0f3550] px-4 py-3 text-white outline-none">
+                          <option value="">Seç</option>
+                          {accounts.map((account) => (
+                            <option key={account.id} value={account.id}>{account.accountName}</option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <label className="block">
+                        <span className="mb-2 block text-sm text-white/70">Lot Adedi</span>
+                        <input value={position.lotCount} onChange={(event) => updatePosition(index, "lotCount", event.target.value)} type="number" min="1" className="w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-white outline-none" />
+                      </label>
+
+                      <label className="block">
+                        <span className="mb-2 block text-sm text-white/70">Lot Fiyatı</span>
+                        <input value={position.buyPrice} onChange={(event) => updatePosition(index, "buyPrice", event.target.value)} type="number" min="0" step="0.01" className="w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-white outline-none" placeholder="Otomatik" />
+                      </label>
+
+                      <label className="block">
+                        <span className="mb-2 block text-sm text-white/70">Not</span>
+                        <input value={position.notes} onChange={(event) => updatePosition(index, "notes", event.target.value)} className="w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-white outline-none" placeholder="Opsiyonel" />
+                      </label>
+                    </div>
+
+                    <div className="mt-4 flex justify-end">
+                      <button type="button" onClick={() => removePositionRow(index)} className="inline-flex items-center gap-2 rounded-2xl border border-rose-300/30 px-3 py-2 text-sm font-medium text-rose-200 transition hover:bg-rose-400/10">
+                        <IconTrash className="h-4 w-4" />
+                        Satırı Sil
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {error ? <p className="mt-4 text-sm text-rose-300">{error}</p> : null}
+
+              <div className="mt-8 flex flex-wrap gap-3">
+                <button type="submit" disabled={saving || accounts.length === 0} className="rounded-2xl bg-emerald-300 px-5 py-3 font-semibold text-slate-950 transition hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-60">
+                  {saving ? "Kaydediliyor..." : "Arzı Kaydet"}
+                </button>
+                <button type="button" onClick={() => router.push("/hesaplarim")} className="rounded-2xl border border-white/15 px-5 py-3 font-semibold text-white transition hover:bg-white/10">
+                  Hesaplarıma Git
+                </button>
+              </div>
+              <div className="mt-8 text-red-200 text-sm">
+                * Lot fiyatı boş bırakıldığında otomatik olarak Arz fiyatı ile kaydedilecektir.
+              </div>
+            </section>
+          </form>
         </main>
       </div>
 

@@ -16,13 +16,16 @@ public class IpoPortfolioRowDto {
     private String accountType;
     private String positionStatus;
     private Boolean sold;
-    private Integer lotCount;
+    private Integer requestedLotCount;
+    private Integer purchasedLotCount;
     private BigDecimal buyPrice;
     private BigDecimal salePrice;
     private BigDecimal currentPrice;
     private BigDecimal totalCost;
     private BigDecimal currentValue;
     private BigDecimal profitLoss;
+    private BigDecimal pendingCash;
+    private String notes;
     private java.time.LocalDateTime soldAt;
     private String currency;
 }

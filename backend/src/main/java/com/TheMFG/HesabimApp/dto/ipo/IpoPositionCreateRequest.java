@@ -10,7 +10,8 @@ import lombok.Setter;
 @Setter
 public class IpoPositionCreateRequest {
     private Long accountId;
-    private Integer lotCount;
+    private Integer requestedLotCount;
+    private Integer purchasedLotCount;
     private BigDecimal buyPrice;
     private LocalDateTime buyDate;
     private String notes;

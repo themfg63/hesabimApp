@@ -1,38 +1,51 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { loginUser } from "@/services/api";
+import { AppModal, type AppModalTone, type AppModalVariant } from "@/components/ui/app-modal";
+import { extractErrorMessage } from "@/services/errors";
 import Link from "next/link";
-import { IconUser, IconLock, IconEye, IconEyeOff, IconLogin, IconCheck } from "@tabler/icons-react";
+import { IconUser, IconLock, IconEye, IconEyeOff, IconLogin } from "@tabler/icons-react";
+
+type FeedbackModalState = {
+  open: boolean;
+  variant: AppModalVariant;
+  tone: AppModalTone;
+  title: string;
+  description: string;
+  confirmText: string;
+  cancelText?: string;
+  showCancel?: boolean;
+  onConfirm?: () => void;
+};
+
+const emptyModalState = (): FeedbackModalState => ({
+  open: false,
+  variant: "info",
+  tone: "primary",
+  title: "",
+  description: "",
+  confirmText: "Tamam",
+});
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(() => (typeof window !== "undefined" ? localStorage.getItem("rememberedEmail") ?? "" : ""));
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
-  const [error, setError] = useState("");
+  const [rememberMe, setRememberMe] = useState(() => (typeof window !== "undefined" ? Boolean(localStorage.getItem("rememberedEmail")) : false));
   const [loading, setLoading] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [modalState, setModalState] = useState<FeedbackModalState>(emptyModalState());
 
-  useEffect(() => {
-    const savedEmail = localStorage.getItem("rememberedEmail");
-    if (savedEmail) {
-      setEmail(savedEmail);
-      setRememberMe(true);
-    }
-  }, []);
+  const closeModal = () => setModalState(emptyModalState());
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      handleSubmit(e as any);
-    }
+  const openModal = (config: Omit<FeedbackModalState, "open">) => {
+    setModalState({ open: true, ...config });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
     setLoading(true);
 
     if (rememberMe) {
@@ -48,24 +61,41 @@ export default function LoginPage() {
         localStorage.setItem("token", response.accessToken);
         localStorage.setItem("refreshToken", response.refreshToken);
         localStorage.setItem("email", email);
-
-        setError("");
-        setShowSuccessModal(true);
-
-        // 2 saniye sonra dashboard'a yönlendir
-        setTimeout(() => {
-          router.push("/dashboard");
-        }, 2000);
-      } else {
-        setError("Giriş başarısız. Yanıt geçersiz.");
         setLoading(false);
+        openModal({
+          variant: "success",
+          tone: "success",
+          title: "Giriş Başarılı",
+          description: "Hoş geldiniz. Dashboard'a yönlendiriliyorsunuz...",
+          confirmText: "Dashboard'a Git",
+          onConfirm: () => {
+            closeModal();
+            router.push("/dashboard");
+          },
+        });
+
+        window.setTimeout(() => {
+          router.push("/dashboard");
+        }, 1600);
+      } else {
+        setLoading(false);
+        openModal({
+          variant: "error",
+          tone: "danger",
+          title: "Giriş Başarısız",
+          description: "Giriş başarısız. Yanıt geçersiz.",
+          confirmText: "Tamam",
+        });
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       setLoading(false);
-      setError(
-        err.response?.data?.message || "Giriş yapılırken bir hata oluştu"
-      );
-      setTimeout(() => setError(""), 5000);
+      openModal({
+        variant: "error",
+        tone: "danger",
+        title: "Giriş Yapılamadı",
+        description: extractErrorMessage(err, "Giriş yapılırken bir hata oluştu"),
+        confirmText: "Tamam",
+      });
     }
   };
 
@@ -144,7 +174,6 @@ export default function LoginPage() {
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      onKeyDown={handleKeyPress}
                       placeholder="ornek@hesabimapp.com"
                       className="w-full pl-12 pr-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/40 focus:ring-2 focus:ring-ivosis-500 focus:border-transparent transition-all duration-300 focus:outline-none"
                       required
@@ -170,7 +199,6 @@ export default function LoginPage() {
                       type={showPassword ? "text" : "password"}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      onKeyDown={handleKeyPress}
                       placeholder="••••••••"
                       className="w-full pl-12 pr-12 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/40 focus:ring-2 focus:ring-ivosis-500 focus:border-transparent transition-all duration-300 focus:outline-none"
                       required
@@ -188,20 +216,6 @@ export default function LoginPage() {
                     </button>
                   </div>
                 </div>
-
-                {/* Error Message */}
-                {error && (
-                  <div
-                    className="opacity-0"
-                    style={{
-                      animation: "fadeIn 0.3s ease-out forwards",
-                    }}
-                  >
-                    <div className="bg-reds-500/10 border border-reds-500/30 rounded-xl p-3 text-reds-300 text-sm text-center">
-                      {error}
-                    </div>
-                  </div>
-                )}
 
                 {/* Remember Me */}
                 <div
@@ -282,70 +296,18 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* Success Modal */}
-      {showSuccessModal && (
-        <>
-          {/* Backdrop */}
-          <div
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 opacity-0"
-            style={{
-              animation: "fadeIn 0.3s ease-out forwards",
-            }}
-          />
-
-          {/* Modal */}
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 opacity-0 scale-90 translate-y-5"
-            style={{
-              animation: "fadeInScaleUp 0.3s ease-out forwards",
-            }}
-          >
-            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center">
-              {/* Success Icon */}
-              <div
-                className="w-20 h-20 bg-linear-to-br from-greens-500 to-greens-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg scale-0"
-                style={{
-                  animation:
-                    "scaleIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55) 0.2s forwards",
-                }}
-              >
-                <IconCheck className="w-10 h-10 text-white" strokeWidth={3} />
-              </div>
-
-              {/* Title */}
-              <h2
-                className="text-2xl font-bold text-natural-900 mb-3 opacity-0"
-                style={{
-                  animation: "fadeInUp 0.5s ease-out 0.3s forwards",
-                }}
-              >
-                Giriş Başarılı!
-              </h2>
-
-              {/* Message */}
-              <p
-                className="text-natural-600 mb-6 opacity-0"
-                style={{
-                  animation: "fadeInUp 0.5s ease-out 0.4s forwards",
-                }}
-              >
-                Hoş geldiniz. Dashboard'a yönlendiriliyorsunuz...
-              </p>
-
-              {/* Loading Spinner */}
-              <div
-                className="flex items-center justify-center gap-2 text-ivosis-600 opacity-0"
-                style={{
-                  animation: "fadeIn 0.5s ease-out 0.5s forwards",
-                }}
-              >
-                <div className="w-5 h-5 border-2 border-ivosis-200 border-t-ivosis-600 rounded-full animate-spin"></div>
-                <span className="text-sm font-medium">Yönlendiriliyor...</span>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
+      <AppModal
+        open={modalState.open}
+        variant={modalState.variant}
+        tone={modalState.tone}
+        title={modalState.title}
+        description={modalState.description}
+        confirmText={modalState.confirmText}
+        cancelText={modalState.cancelText}
+        showCancel={modalState.showCancel}
+        onConfirm={modalState.onConfirm}
+        onClose={closeModal}
+      />
 
       {/* Animations CSS */}
       <style jsx>{`

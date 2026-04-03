@@ -100,6 +100,11 @@ CREATE INDEX IF NOT EXISTS idx_ipo_positions_ipo_id ON ipo_positions(ipo_id);
 ALTER TABLE ipo_positions ADD COLUMN IF NOT EXISTS sale_price NUMERIC(18, 2);
 ALTER TABLE ipo_positions ADD COLUMN IF NOT EXISTS sold_at TIMESTAMP;
 ALTER TABLE ipo_positions ADD COLUMN IF NOT EXISTS position_status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE';
+ALTER TABLE ipo_positions ADD COLUMN IF NOT EXISTS purchased_lot_count INTEGER;
+
+UPDATE ipo_positions
+SET purchased_lot_count = NULL
+WHERE purchased_lot_count IS NOT NULL AND purchased_lot_count < 0;
 
 UPDATE ipo_positions
 SET position_status = 'ACTIVE'

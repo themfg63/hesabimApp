@@ -126,7 +126,17 @@ public class IpoService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Bu hesap icin satir zaten mevcut");
         }
 
-        IpoPosition position = buildPosition(null, offering, account, currentUser, request.getLotCount(), request.getBuyPrice(), request.getBuyDate(), request.getNotes());
+        IpoPosition position = buildPosition(
+            null,
+            offering,
+            account,
+            currentUser,
+            request.getRequestedLotCount(),
+            request.getPurchasedLotCount(),
+            request.getBuyPrice(),
+            request.getBuyDate(),
+            request.getNotes()
+        );
         IpoPosition savedPosition = ipoPositionRepository.save(position);
 
         return toRow(savedPosition, offering.getCurrentPrice(), offering.getCurrency());
@@ -151,7 +161,8 @@ public class IpoService {
             existingPosition.getOffering(),
             account,
             currentUser,
-            request.getLotCount() == null ? existingPosition.getLotCount() : request.getLotCount(),
+            request.getRequestedLotCount() == null ? existingPosition.getLotCount() : request.getRequestedLotCount(),
+            request.getPurchasedLotCount() == null ? existingPosition.getPurchasedLotCount() : request.getPurchasedLotCount(),
             request.getBuyPrice() == null ? existingPosition.getBuyPrice() : request.getBuyPrice(),
             request.getBuyDate() == null ? existingPosition.getBuyDate() : request.getBuyDate(),
             request.getNotes() == null ? existingPosition.getNotes() : request.getNotes()
@@ -197,12 +208,22 @@ public class IpoService {
         ipoPositionRepository.delete(position);
     }
 
+    @Transactional
+    public void deleteIpo(Long ipoId) {
+        User currentUser = getCurrentUser();
+        IpoOffering offering = getOwnedOffering(ipoId, currentUser.getId());
+
+        ipoPositionRepository.deleteByOfferingIdAndUserId(offering.getId(), currentUser.getId());
+        ipoOfferingRepository.delete(offering);
+    }
+
     private IpoSummaryItemDto toSummaryItem(IpoOffering offering) {
         List<IpoPortfolioRowDto> rows = ipoPositionRepository.findByOfferingIdAndUserIdOrderByAccountAccountNameAsc(offering.getId(), offering.getUser().getId()).stream()
             .map(position -> toRow(position, offering.getCurrentPrice(), offering.getCurrency()))
             .toList();
 
         IpoPortfolioSummaryDto summary = toSummary(rows, offering.getCurrency());
+        boolean fullySold = !rows.isEmpty() && rows.stream().allMatch(IpoPortfolioRowDto::getSold);
 
         return IpoSummaryItemDto.builder()
             .id(offering.getId())
@@ -210,10 +231,13 @@ public class IpoService {
             .companyName(offering.getCompanyName())
             .offeringPrice(offering.getOfferingPrice())
             .currentPrice(offering.getCurrentPrice())
-            .totalLot(summary.getTotalLot())
+            .totalRequestedLot(summary.getTotalRequestedLot())
+            .totalPurchasedLot(summary.getTotalPurchasedLot())
             .totalCost(summary.getTotalCost())
             .totalCurrentValue(summary.getTotalCurrentValue())
             .totalProfitLoss(summary.getTotalProfitLoss())
+            .totalPendingCash(summary.getTotalPendingCash())
+            .fullySold(fullySold)
             .positionCount(rows.size())
             .currency(offering.getCurrency())
             .build();
@@ -222,8 +246,11 @@ public class IpoService {
     private IpoPortfolioRowDto toRow(IpoPosition position, BigDecimal currentPrice, String currency) {
         boolean sold = "SOLD".equalsIgnoreCase(position.getPositionStatus());
         BigDecimal effectivePrice = sold && position.getSalePrice() != null ? position.getSalePrice() : currentPrice;
-        BigDecimal totalCost = position.getBuyPrice().multiply(BigDecimal.valueOf(position.getLotCount()));
-        BigDecimal currentValue = effectivePrice.multiply(BigDecimal.valueOf(position.getLotCount()));
+        int requestedLotCount = position.getLotCount();
+        int purchasedLotCount = position.getPurchasedLotCount() == null ? 0 : position.getPurchasedLotCount();
+        BigDecimal totalCost = position.getBuyPrice().multiply(BigDecimal.valueOf(purchasedLotCount));
+        BigDecimal currentValue = effectivePrice.multiply(BigDecimal.valueOf(purchasedLotCount));
+        BigDecimal pendingCash = position.getBuyPrice().multiply(BigDecimal.valueOf(requestedLotCount - purchasedLotCount));
 
         return IpoPortfolioRowDto.builder()
             .positionId(position.getId())
@@ -232,29 +259,36 @@ public class IpoService {
             .accountType(position.getAccount().getAccountType())
             .positionStatus(position.getPositionStatus())
             .sold(sold)
-            .lotCount(position.getLotCount())
+            .requestedLotCount(requestedLotCount)
+            .purchasedLotCount(position.getPurchasedLotCount())
             .buyPrice(position.getBuyPrice())
             .salePrice(position.getSalePrice())
             .currentPrice(currentPrice)
             .totalCost(totalCost)
             .currentValue(currentValue)
             .profitLoss(currentValue.subtract(totalCost))
+            .pendingCash(pendingCash)
+            .notes(position.getNotes())
             .soldAt(position.getSoldAt())
             .currency(currency)
             .build();
     }
 
     private IpoPortfolioSummaryDto toSummary(List<IpoPortfolioRowDto> rows, String currency) {
-        int totalLot = rows.stream().mapToInt(IpoPortfolioRowDto::getLotCount).sum();
+        int totalRequestedLot = rows.stream().mapToInt(IpoPortfolioRowDto::getRequestedLotCount).sum();
+        int totalPurchasedLot = rows.stream().mapToInt(row -> row.getPurchasedLotCount() == null ? 0 : row.getPurchasedLotCount()).sum();
         BigDecimal totalCost = rows.stream().map(IpoPortfolioRowDto::getTotalCost).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal totalCurrentValue = rows.stream().map(IpoPortfolioRowDto::getCurrentValue).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal totalProfitLoss = rows.stream().map(IpoPortfolioRowDto::getProfitLoss).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalPendingCash = rows.stream().map(IpoPortfolioRowDto::getPendingCash).reduce(BigDecimal.ZERO, BigDecimal::add);
 
         return IpoPortfolioSummaryDto.builder()
-            .totalLot(totalLot)
+            .totalRequestedLot(totalRequestedLot)
+            .totalPurchasedLot(totalPurchasedLot)
             .totalCost(totalCost)
             .totalCurrentValue(totalCurrentValue)
             .totalProfitLoss(totalProfitLoss)
+            .totalPendingCash(totalPendingCash)
             .currency(currency)
             .build();
     }
@@ -276,13 +310,20 @@ public class IpoService {
         IpoOffering offering,
         Account account,
         User user,
-        Integer lotCount,
+        Integer requestedLotCount,
+        Integer purchasedLotCount,
         BigDecimal buyPrice,
         LocalDateTime buyDate,
         String notes
     ) {
-        if (lotCount == null || lotCount <= 0) {
+        if (requestedLotCount == null || requestedLotCount <= 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Lot adedi pozitif olmali");
+        }
+        if (purchasedLotCount != null && purchasedLotCount < 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Satin alinan lot negatif olamaz");
+        }
+        if (purchasedLotCount != null && purchasedLotCount > requestedLotCount) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Satin alinan lot talep edilen lottan buyuk olamaz");
         }
 
         BigDecimal resolvedBuyPrice = buyPrice == null ? offering.getOfferingPrice() : buyPrice;
@@ -295,7 +336,8 @@ public class IpoService {
         position.setUser(user);
         position.setOffering(offering);
         position.setAccount(account);
-        position.setLotCount(lotCount);
+        position.setLotCount(requestedLotCount);
+        position.setPurchasedLotCount(purchasedLotCount);
         position.setBuyPrice(resolvedBuyPrice);
         position.setBuyDate(buyDate);
         position.setNotes(sanitize(notes));

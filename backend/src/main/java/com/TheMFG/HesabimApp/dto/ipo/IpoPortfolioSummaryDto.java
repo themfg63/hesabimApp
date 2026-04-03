@@ -10,9 +10,11 @@ import lombok.Getter;
 @Builder
 @AllArgsConstructor
 public class IpoPortfolioSummaryDto {
-    private Integer totalLot;
+    private Integer totalRequestedLot;
+    private Integer totalPurchasedLot;
     private BigDecimal totalCost;
     private BigDecimal totalCurrentValue;
     private BigDecimal totalProfitLoss;
+    private BigDecimal totalPendingCash;
     private String currency;
 }

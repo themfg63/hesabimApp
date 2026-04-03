@@ -3,8 +3,32 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { IconEye, IconEyeOff, IconLock, IconMail, IconUser, IconUserPlus } from "@tabler/icons-react";
+
+import { AppModal, type AppModalTone, type AppModalVariant } from "@/components/ui/app-modal";
 import { registerUser } from "@/services/api";
-import { IconUser, IconMail, IconLock, IconEye, IconEyeOff, IconUserPlus, IconCheck } from "@tabler/icons-react";
+import { extractErrorMessage } from "@/services/errors";
+
+type FeedbackModalState = {
+  open: boolean;
+  variant: AppModalVariant;
+  tone: AppModalTone;
+  title: string;
+  description: string;
+  confirmText: string;
+  cancelText?: string;
+  showCancel?: boolean;
+  onConfirm?: () => void;
+};
+
+const emptyModalState = (): FeedbackModalState => ({
+  open: false,
+  variant: "info",
+  tone: "primary",
+  title: "",
+  description: "",
+  confirmText: "Tamam",
+});
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -14,67 +38,89 @@ export default function RegisterPage() {
   const [passwordConfirm, setPasswordConfirm] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
-  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [modalState, setModalState] = useState<FeedbackModalState>(emptyModalState());
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      handleSubmit(e as any);
-    }
+  const closeModal = () => setModalState(emptyModalState());
+
+  const openModal = (config: Omit<FeedbackModalState, "open">) => {
+    setModalState({ open: true, ...config });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
 
-    // Şifre kontrolü
     if (password !== passwordConfirm) {
-      setError("Şifreler eşleşmiyor");
+      openModal({
+        variant: "warning",
+        tone: "warning",
+        title: "Form Uyarısı",
+        description: "Şifreler eşleşmiyor.",
+        confirmText: "Tamam",
+      });
       return;
     }
 
     if (password.length < 6) {
-      setError("Şifre en az 6 karakter olmalıdır");
+      openModal({
+        variant: "warning",
+        tone: "warning",
+        title: "Form Uyarısı",
+        description: "Şifre en az 6 karakter olmalıdır.",
+        confirmText: "Tamam",
+      });
       return;
     }
 
-    setLoading(true);
-
     try {
+      setLoading(true);
       const response = await registerUser(name, email, password);
-      
-      // Token'ı localStorage'a kaydet
-      if (response.accessToken) {
-        localStorage.setItem("token", response.accessToken);
-        localStorage.setItem("refreshToken", response.refreshToken);
-        localStorage.setItem("email", email);
 
-        setError("");
-        setShowSuccessModal(true);
-
-        // 2 saniye sonra dashboard'a yönlendir
-        setTimeout(() => {
-          router.push("/login");
-        }, 2000);
-      } else {
-        setError("Kayıt başarısız. Yanıt geçersiz.");
-        setLoading(false);
+      if (!response.accessToken) {
+        openModal({
+          variant: "error",
+          tone: "danger",
+          title: "Kayıt Başarısız",
+          description: "Kayıt başarısız. Yanıt geçersiz.",
+          confirmText: "Tamam",
+        });
+        return;
       }
-    } catch (err: any) {
+
+      localStorage.setItem("token", response.accessToken);
+      localStorage.setItem("refreshToken", response.refreshToken);
+      localStorage.setItem("email", email);
+
+      openModal({
+        variant: "success",
+        tone: "success",
+        title: "Kayıt Başarılı",
+        description: "Hesabınız oluşturuldu. Giriş ekranına yönlendiriliyorsunuz.",
+        confirmText: "Girişe Git",
+        onConfirm: () => {
+          closeModal();
+          router.push("/login");
+        },
+      });
+
+      window.setTimeout(() => {
+        router.push("/login");
+      }, 1600);
+    } catch (error: unknown) {
+      openModal({
+        variant: "error",
+        tone: "danger",
+        title: "Kayıt Olunamadı",
+        description: extractErrorMessage(error, "Kayıt olurken bir hata oluştu"),
+        confirmText: "Tamam",
+      });
+    } finally {
       setLoading(false);
-      console.error("Register error details:", err);
-      const errorMessage = err.response?.data?.message 
-        || err.message 
-        || "Kayıt olurken bir hata oluştu";
-      setError(errorMessage);
-      setTimeout(() => setError(""), 5000);
     }
   };
 
   return (
     <div className="min-h-screen relative overflow-hidden bg-linear-to-br from-ivosis-900 via-ivosis-800 to-natural-900">
-      {/* Animated Background Elements */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 -right-40 w-96 h-96 bg-ivosis-500/20 rounded-full blur-3xl animate-pulse"></div>
         <div
@@ -82,213 +128,123 @@ export default function RegisterPage() {
           style={{ animationDelay: "1s" }}
         ></div>
         <div
-          className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-ivosis-400/10 rounded-full blur-3xl animate-pulse"
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 transform w-96 h-96 bg-ivosis-400/10 rounded-full blur-3xl animate-pulse"
           style={{ animationDelay: "2s" }}
         ></div>
       </div>
 
-      {/* Grid Pattern Overlay */}
-      <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:50px_50px]"></div>
+      <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-size-[50px_50px]"></div>
 
       <div className="relative z-10 min-h-screen flex items-center justify-center p-4">
-        <div
-          className="w-full max-w-md opacity-0 translate-y-5"
-          style={{
-            animation: "fadeInUp 0.6s ease-out forwards",
-          }}
-        >
-          {/* Register Card */}
-          <div className="bg-white/10 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 overflow-hidden">
-            {/* Logo Section */}
+        <div className="w-full max-w-md translate-y-5 opacity-0" style={{ animation: "fadeInUp 0.6s ease-out forwards" }}>
+          <div className="overflow-hidden rounded-3xl border border-white/20 bg-white/10 shadow-2xl backdrop-blur-xl">
             <div className="bg-linear-to-br from-ivosis-600 to-ivosis-800 p-8 text-center">
-              <div
-                className="inline-block opacity-0 scale-90"
-                style={{
-                  animation: "fadeInScale 0.5s ease-out 0.2s forwards",
-                }}
-              >
-              </div>
-              <h1
-                className="text-2xl font-bold text-white mb-2 opacity-0"
-                style={{
-                  animation: "fadeIn 0.5s ease-out 0.4s forwards",
-                }}
-              >
+              <h1 className="mb-2 text-2xl font-bold text-white opacity-0" style={{ animation: "fadeIn 0.5s ease-out 0.4s forwards" }}>
                 HESAP OLUŞTUR
               </h1>
-              <p
-                className="text-ivosis-200 text-sm opacity-0"
-                style={{
-                  animation: "fadeIn 0.5s ease-out 0.5s forwards",
-                }}
-              >
+              <p className="text-sm text-ivosis-200 opacity-0" style={{ animation: "fadeIn 0.5s ease-out 0.5s forwards" }}>
                 Yeni hesap oluşturmak için bilgilerinizi girin
               </p>
             </div>
 
-            {/* Form Section */}
             <div className="p-8">
               <form onSubmit={handleSubmit} className="space-y-5">
-                {/* Name Input */}
-                <div
-                  className="opacity-0 -translate-y-5"
-                  style={{
-                    animation: "fadeInLeft 0.5s ease-out 0.6s forwards",
-                  }}
-                >
-                  <label className="block text-white text-sm font-medium mb-2">
-                    Ad Soyad
-                  </label>
+                <div className="-translate-y-5 opacity-0" style={{ animation: "fadeInLeft 0.5s ease-out 0.6s forwards" }}>
+                  <label className="mb-2 block text-sm font-medium text-white">Ad Soyad</label>
                   <div className="relative">
-                    <div className="absolute left-4 top-1/2 transform -translate-y-1/2 z-10">
-                      <IconUser className="w-5 h-5 text-ivosis-400" />
+                    <div className="absolute left-4 top-1/2 z-10 -translate-y-1/2 transform">
+                      <IconUser className="h-5 w-5 text-ivosis-400" />
                     </div>
                     <input
                       type="text"
                       value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      onKeyDown={handleKeyPress}
+                      onChange={(event) => setName(event.target.value)}
                       placeholder="Ali Yılmaz"
-                      className="w-full pl-12 pr-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/40 focus:ring-2 focus:ring-ivosis-500 focus:border-transparent transition-all duration-300 focus:outline-none"
+                      className="w-full rounded-xl border border-white/20 bg-white/10 py-3 pl-12 pr-4 text-white placeholder-white/40 transition-all duration-300 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-ivosis-500"
                       required
                     />
                   </div>
                 </div>
 
-                {/* Email Input */}
-                <div
-                  className="opacity-0 -translate-y-5"
-                  style={{
-                    animation: "fadeInLeft 0.5s ease-out 0.7s forwards",
-                  }}
-                >
-                  <label className="block text-white text-sm font-medium mb-2">
-                    E-posta
-                  </label>
+                <div className="-translate-y-5 opacity-0" style={{ animation: "fadeInLeft 0.5s ease-out 0.7s forwards" }}>
+                  <label className="mb-2 block text-sm font-medium text-white">E-posta</label>
                   <div className="relative">
-                    <div className="absolute left-4 top-1/2 transform -translate-y-1/2 z-10">
-                      <IconMail className="w-5 h-5 text-ivosis-400" />
+                    <div className="absolute left-4 top-1/2 z-10 -translate-y-1/2 transform">
+                      <IconMail className="h-5 w-5 text-ivosis-400" />
                     </div>
                     <input
                       type="email"
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      onKeyDown={handleKeyPress}
+                      onChange={(event) => setEmail(event.target.value)}
                       placeholder="ornek@hesabimapp.com"
-                      className="w-full pl-12 pr-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/40 focus:ring-2 focus:ring-ivosis-500 focus:border-transparent transition-all duration-300 focus:outline-none"
+                      className="w-full rounded-xl border border-white/20 bg-white/10 py-3 pl-12 pr-4 text-white placeholder-white/40 transition-all duration-300 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-ivosis-500"
                       required
                     />
                   </div>
                 </div>
 
-                {/* Password Input */}
-                <div
-                  className="opacity-0 -translate-y-5"
-                  style={{
-                    animation: "fadeInLeft 0.5s ease-out 0.8s forwards",
-                  }}
-                >
-                  <label className="block text-white text-sm font-medium mb-2">
-                    Şifre
-                  </label>
+                <div className="-translate-y-5 opacity-0" style={{ animation: "fadeInLeft 0.5s ease-out 0.8s forwards" }}>
+                  <label className="mb-2 block text-sm font-medium text-white">Şifre</label>
                   <div className="relative">
-                    <div className="absolute left-4 top-1/2 transform -translate-y-1/2 z-10">
-                      <IconLock className="w-5 h-5 text-ivosis-400" />
+                    <div className="absolute left-4 top-1/2 z-10 -translate-y-1/2 transform">
+                      <IconLock className="h-5 w-5 text-ivosis-400" />
                     </div>
                     <input
                       type={showPassword ? "text" : "password"}
                       value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      onKeyDown={handleKeyPress}
+                      onChange={(event) => setPassword(event.target.value)}
                       placeholder="••••••••"
-                      className="w-full pl-12 pr-12 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/40 focus:ring-2 focus:ring-ivosis-500 focus:border-transparent transition-all duration-300 focus:outline-none"
+                      className="w-full rounded-xl border border-white/20 bg-white/10 py-3 pl-12 pr-12 text-white placeholder-white/40 transition-all duration-300 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-ivosis-500"
                       required
                     />
                     <button
                       type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-4 top-1/2 transform -translate-y-1/2 text-ivosis-400 hover:text-ivosis-300 transition-colors focus:outline-none z-10"
+                      onClick={() => setShowPassword((current) => !current)}
+                      className="absolute right-4 top-1/2 z-10 -translate-y-1/2 transform text-ivosis-400 transition-colors hover:text-ivosis-300 focus:outline-none"
                     >
-                      {showPassword ? (
-                        <IconEyeOff className="w-5 h-5" />
-                      ) : (
-                        <IconEye className="w-5 h-5" />
-                      )}
+                      {showPassword ? <IconEyeOff className="h-5 w-5" /> : <IconEye className="h-5 w-5" />}
                     </button>
                   </div>
                 </div>
 
-                {/* Password Confirm Input */}
-                <div
-                  className="opacity-0 -translate-y-5"
-                  style={{
-                    animation: "fadeInLeft 0.5s ease-out 0.9s forwards",
-                  }}
-                >
-                  <label className="block text-white text-sm font-medium mb-2">
-                    Şifre Tekrar
-                  </label>
+                <div className="-translate-y-5 opacity-0" style={{ animation: "fadeInLeft 0.5s ease-out 0.9s forwards" }}>
+                  <label className="mb-2 block text-sm font-medium text-white">Şifre Tekrar</label>
                   <div className="relative">
-                    <div className="absolute left-4 top-1/2 transform -translate-y-1/2 z-10">
-                      <IconLock className="w-5 h-5 text-ivosis-400" />
+                    <div className="absolute left-4 top-1/2 z-10 -translate-y-1/2 transform">
+                      <IconLock className="h-5 w-5 text-ivosis-400" />
                     </div>
                     <input
                       type={showPasswordConfirm ? "text" : "password"}
                       value={passwordConfirm}
-                      onChange={(e) => setPasswordConfirm(e.target.value)}
-                      onKeyDown={handleKeyPress}
+                      onChange={(event) => setPasswordConfirm(event.target.value)}
                       placeholder="••••••••"
-                      className="w-full pl-12 pr-12 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/40 focus:ring-2 focus:ring-ivosis-500 focus:border-transparent transition-all duration-300 focus:outline-none"
+                      className="w-full rounded-xl border border-white/20 bg-white/10 py-3 pl-12 pr-12 text-white placeholder-white/40 transition-all duration-300 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-ivosis-500"
                       required
                     />
                     <button
                       type="button"
-                      onClick={() => setShowPasswordConfirm(!showPasswordConfirm)}
-                      className="absolute right-4 top-1/2 transform -translate-y-1/2 text-ivosis-400 hover:text-ivosis-300 transition-colors focus:outline-none z-10"
+                      onClick={() => setShowPasswordConfirm((current) => !current)}
+                      className="absolute right-4 top-1/2 z-10 -translate-y-1/2 transform text-ivosis-400 transition-colors hover:text-ivosis-300 focus:outline-none"
                     >
-                      {showPasswordConfirm ? (
-                        <IconEyeOff className="w-5 h-5" />
-                      ) : (
-                        <IconEye className="w-5 h-5" />
-                      )}
+                      {showPasswordConfirm ? <IconEyeOff className="h-5 w-5" /> : <IconEye className="h-5 w-5" />}
                     </button>
                   </div>
                 </div>
 
-                {/* Error Message */}
-                {error && (
-                  <div
-                    className="opacity-0"
-                    style={{
-                      animation: "fadeIn 0.3s ease-out forwards",
-                    }}
-                  >
-                    <div className="bg-reds-500/10 border border-reds-500/30 rounded-xl p-3 text-reds-300 text-sm text-center">
-                      {error}
-                    </div>
-                  </div>
-                )}
-
-                {/* Submit Button */}
-                <div
-                  className="opacity-0 translate-y-5"
-                  style={{
-                    animation: "fadeInUp 0.5s ease-out 1s forwards",
-                  }}
-                >
+                <div className="translate-y-5 opacity-0" style={{ animation: "fadeInUp 0.5s ease-out 1s forwards" }}>
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full bg-linear-to-r from-ivosis-500 to-ivosis-600 hover:from-ivosis-600 hover:to-ivosis-700 text-white font-semibold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none h-12"
+                    className="flex h-12 w-full items-center justify-center space-x-2 rounded-xl bg-linear-to-r from-ivosis-500 to-ivosis-600 px-6 py-3 font-semibold text-white shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:from-ivosis-600 hover:to-ivosis-700 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50 disabled:transform-none"
                   >
                     {loading ? (
                       <>
-                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        <div className="h-5 w-5 rounded-full border-2 border-white/30 border-t-white animate-spin"></div>
                         <span>Kayıt Yapılıyor...</span>
                       </>
                     ) : (
                       <>
-                        <IconUserPlus className="w-5 h-5" />
+                        <IconUserPlus className="h-5 w-5" />
                         <span>Kayıt Ol</span>
                       </>
                     )}
@@ -296,19 +252,10 @@ export default function RegisterPage() {
                 </div>
               </form>
 
-              {/* Additional Info */}
-              <div
-                className="mt-6 pt-6 border-t border-white/10 text-center opacity-0"
-                style={{
-                  animation: "fadeIn 0.5s ease-out 1.1s forwards",
-                }}
-              >
-                <p className="text-white/60 text-sm">
+              <div className="mt-6 border-t border-white/10 pt-6 text-center opacity-0" style={{ animation: "fadeIn 0.5s ease-out 1.1s forwards" }}>
+                <p className="text-sm text-white/60">
                   Zaten hesabınız var mı?{" "}
-                  <Link
-                    href="/login"
-                    className="text-ivosis-400 hover:text-ivosis-300 transition-colors"
-                  >
+                  <Link href="/login" className="text-ivosis-400 transition-colors hover:text-ivosis-300">
                     Giriş Yapın
                   </Link>
                 </p>
@@ -316,84 +263,25 @@ export default function RegisterPage() {
             </div>
           </div>
 
-          {/* Footer */}
-          <div
-            className="text-center mt-8 text-white/60 text-sm opacity-0"
-            style={{
-              animation: "fadeIn 0.5s ease-out 1.2s forwards",
-            }}
-          >
+          <div className="mt-8 text-center text-sm text-white/60 opacity-0" style={{ animation: "fadeIn 0.5s ease-out 1.2s forwards" }}>
             <p>© 2026 HesabimApp. Tüm hakları saklıdır.</p>
           </div>
         </div>
       </div>
 
-      {/* Success Modal */}
-      {showSuccessModal && (
-        <>
-          {/* Backdrop */}
-          <div
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 opacity-0"
-            style={{
-              animation: "fadeIn 0.3s ease-out forwards",
-            }}
-          />
+      <AppModal
+        open={modalState.open}
+        variant={modalState.variant}
+        tone={modalState.tone}
+        title={modalState.title}
+        description={modalState.description}
+        confirmText={modalState.confirmText}
+        cancelText={modalState.cancelText}
+        showCancel={modalState.showCancel}
+        onConfirm={modalState.onConfirm}
+        onClose={closeModal}
+      />
 
-          {/* Modal */}
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 opacity-0 scale-90 translate-y-5"
-            style={{
-              animation: "fadeInScaleUp 0.3s ease-out forwards",
-            }}
-          >
-            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center">
-              {/* Success Icon */}
-              <div
-                className="w-20 h-20 bg-linear-to-br from-greens-500 to-greens-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg scale-0"
-                style={{
-                  animation:
-                    "scaleIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55) 0.2s forwards",
-                }}
-              >
-                <IconCheck className="w-10 h-10 text-white" strokeWidth={3} />
-              </div>
-
-              {/* Title */}
-              <h2
-                className="text-2xl font-bold text-natural-900 mb-3 opacity-0"
-                style={{
-                  animation: "fadeInUp 0.5s ease-out 0.3s forwards",
-                }}
-              >
-                Kayıt Başarılı!
-              </h2>
-
-              {/* Message */}
-              <p
-                className="text-natural-600 mb-6 opacity-0"
-                style={{
-                  animation: "fadeInUp 0.5s ease-out 0.4s forwards",
-                }}
-              >
-                Hoş geldiniz. Dashboard'a yönlendiriliyorsunuz...
-              </p>
-
-              {/* Loading Spinner */}
-              <div
-                className="flex items-center justify-center gap-2 text-ivosis-600 opacity-0"
-                style={{
-                  animation: "fadeIn 0.5s ease-out 0.5s forwards",
-                }}
-              >
-                <div className="w-5 h-5 border-2 border-ivosis-200 border-t-ivosis-600 rounded-full animate-spin"></div>
-                <span className="text-sm font-medium">Yönlendiriliyor...</span>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* Animations CSS */}
       <style jsx>{`
         @keyframes fadeIn {
           from {
@@ -423,37 +311,6 @@ export default function RegisterPage() {
           to {
             opacity: 1;
             transform: translateX(0);
-          }
-        }
-
-        @keyframes fadeInScale {
-          from {
-            opacity: 0;
-            transform: scale(0.8);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1);
-          }
-        }
-
-        @keyframes fadeInScaleUp {
-          from {
-            opacity: 0;
-            transform: scale(0.9) translateY(20px);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1) translateY(0);
-          }
-        }
-
-        @keyframes scaleIn {
-          from {
-            transform: scale(0);
-          }
-          to {
-            transform: scale(1);
           }
         }
       `}</style>

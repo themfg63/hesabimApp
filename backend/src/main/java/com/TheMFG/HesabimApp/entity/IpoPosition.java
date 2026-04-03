@@ -29,6 +29,7 @@ public class IpoPosition {
     private Long id;
 
     private Integer lotCount;
+    private Integer purchasedLotCount;
 
     private BigDecimal buyPrice;
 

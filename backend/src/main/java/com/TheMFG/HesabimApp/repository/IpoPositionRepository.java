@@ -12,6 +12,8 @@ public interface IpoPositionRepository extends JpaRepository<IpoPosition, Long> 
 
     Optional<IpoPosition> findByIdAndUserId(Long id, Long userId);
 
+    void deleteByOfferingIdAndUserId(Long offeringId, Long userId);
+
     boolean existsByOfferingIdAndAccountId(Long offeringId, Long accountId);
 
     boolean existsByOfferingIdAndAccountIdAndIdNot(Long offeringId, Long accountId, Long id);

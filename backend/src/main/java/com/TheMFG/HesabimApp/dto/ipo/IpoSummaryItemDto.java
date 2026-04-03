@@ -15,10 +15,13 @@ public class IpoSummaryItemDto {
     private String companyName;
     private BigDecimal offeringPrice;
     private BigDecimal currentPrice;
-    private Integer totalLot;
+    private Integer totalRequestedLot;
+    private Integer totalPurchasedLot;
     private BigDecimal totalCost;
     private BigDecimal totalCurrentValue;
     private BigDecimal totalProfitLoss;
+    private BigDecimal totalPendingCash;
+    private Boolean fullySold;
     private Integer positionCount;
     private String currency;
 }

@@ -8,6 +8,7 @@ import type {
   IpoPortfolioResponse,
   IpoSummaryItem,
   SellIpoPositionPayload,
+  UpdateIpoPositionPayload,
 } from "@/types/ipo";
 
 // İstemci tarafında her zaman Next.js API route'larına git (same-origin).
@@ -90,6 +91,10 @@ export const getIpoDetail = async (ipoId: number | string) => {
   return response.data;
 };
 
+export const deleteIpo = async (ipoId: number | string) => {
+  await api.delete(`/ipos/${ipoId}`);
+};
+
 export const createIpo = async (payload: CreateIpoPayload) => {
   const response = await api.post<IpoHeader>("/ipos", payload);
   return response.data;
@@ -102,6 +107,11 @@ export const updateIpoPrice = async (ipoId: number | string, currentPrice: numbe
 
 export const createIpoPosition = async (ipoId: number | string, payload: CreateIpoPositionPayload) => {
   const response = await api.post(`/ipos/${ipoId}/positions`, payload);
+  return response.data;
+};
+
+export const updateIpoPosition = async (positionId: number | string, payload: UpdateIpoPositionPayload) => {
+  const response = await api.put(`/ipos/positions/${positionId}`, payload);
   return response.data;
 };
 

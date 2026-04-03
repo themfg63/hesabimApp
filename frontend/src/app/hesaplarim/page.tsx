@@ -1,11 +1,31 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { IconArrowLeft, IconBuildingBank, IconPlus } from "@tabler/icons-react";
 
+import { AppModal, type AppModalTone, type AppModalVariant } from "@/components/ui/app-modal";
 import { createAccount, getAccounts } from "@/services/api";
+import { extractErrorMessage } from "@/services/errors";
 import type { Account } from "@/types/account";
+
+type FeedbackModalState = {
+  open: boolean;
+  variant: AppModalVariant;
+  tone: AppModalTone;
+  title: string;
+  description: string;
+  confirmText: string;
+};
+
+const emptyModalState = (): FeedbackModalState => ({
+  open: false,
+  variant: "info",
+  tone: "primary",
+  title: "",
+  description: "",
+  confirmText: "Tamam",
+});
 
 export default function Hesaplarim() {
   const router = useRouter();
@@ -16,8 +36,15 @@ export default function Hesaplarim() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [modalState, setModalState] = useState<FeedbackModalState>(emptyModalState());
 
-  const loadAccounts = async () => {
+  const closeModal = useCallback(() => setModalState(emptyModalState()), []);
+
+  const openModal = useCallback((config: Omit<FeedbackModalState, "open">) => {
+    setModalState({ open: true, ...config });
+  }, []);
+
+  const loadAccounts = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -25,10 +52,17 @@ export default function Hesaplarim() {
       setAccounts(response);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Hesaplar yuklenemedi");
+      openModal({
+        variant: "error",
+        tone: "danger",
+        title: "Hesaplar Yüklenemedi",
+        description: extractErrorMessage(loadError, "Hesaplar yuklenemedi"),
+        confirmText: "Tamam",
+      });
     } finally {
       setLoading(false);
     }
-  };
+  }, [openModal]);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -38,7 +72,7 @@ export default function Hesaplarim() {
     }
 
     void loadAccounts();
-  }, [router]);
+  }, [loadAccounts, router]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -55,8 +89,22 @@ export default function Hesaplarim() {
       setAccountType("");
       setCurrency("TRY");
       await loadAccounts();
+      openModal({
+        variant: "success",
+        tone: "success",
+        title: "Hesap Eklendi",
+        description: "Yeni banka hesabı başarıyla kaydedildi.",
+        confirmText: "Tamam",
+      });
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Hesap kaydedilemedi");
+      openModal({
+        variant: "error",
+        tone: "danger",
+        title: "Hesap Eklenemedi",
+        description: extractErrorMessage(saveError, "Hesap kaydedilemedi"),
+        confirmText: "Tamam",
+      });
     } finally {
       setSaving(false);
     }
@@ -207,6 +255,16 @@ export default function Hesaplarim() {
           }
         }
       `}</style>
+
+      <AppModal
+        open={modalState.open}
+        variant={modalState.variant}
+        tone={modalState.tone}
+        title={modalState.title}
+        description={modalState.description}
+        confirmText={modalState.confirmText}
+        onClose={closeModal}
+      />
     </div>
   );
 }

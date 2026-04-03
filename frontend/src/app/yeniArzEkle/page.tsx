@@ -4,19 +4,40 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { IconArrowLeft, IconPlus, IconTrash } from "@tabler/icons-react";
 
+import { AppModal, type AppModalTone, type AppModalVariant } from "@/components/ui/app-modal";
 import { createIpo, createIpoPosition, getAccounts } from "@/services/api";
+import { extractErrorMessage } from "@/services/errors";
 import type { Account } from "@/types/account";
+
+type FeedbackModalState = {
+  open: boolean;
+  variant: AppModalVariant;
+  tone: AppModalTone;
+  title: string;
+  description: string;
+  confirmText: string;
+  onConfirm?: () => void;
+};
+
+const emptyModalState = (): FeedbackModalState => ({
+  open: false,
+  variant: "info",
+  tone: "primary",
+  title: "",
+  description: "",
+  confirmText: "Tamam",
+});
 
 type PositionDraft = {
   accountId: string;
-  lotCount: string;
+  requestedLotCount: string;
   buyPrice: string;
   notes: string;
 };
 
 const emptyPositionDraft = (): PositionDraft => ({
   accountId: "",
-  lotCount: "",
+  requestedLotCount: "",
   buyPrice: "",
   notes: "",
 });
@@ -33,6 +54,13 @@ export default function YeniArzEkle() {
   const [saving, setSaving] = useState(false);
   const [loadingAccounts, setLoadingAccounts] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [modalState, setModalState] = useState<FeedbackModalState>(emptyModalState());
+
+  const closeModal = () => setModalState(emptyModalState());
+
+  const openModal = (config: Omit<FeedbackModalState, "open">) => {
+    setModalState({ open: true, ...config });
+  };
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -47,6 +75,13 @@ export default function YeniArzEkle() {
         setAccounts(response);
       } catch (loadError) {
         setError(loadError instanceof Error ? loadError.message : "Hesaplar yuklenemedi");
+        openModal({
+          variant: "error",
+          tone: "danger",
+          title: "Hesaplar Yüklenemedi",
+          description: extractErrorMessage(loadError, "Hesaplar yuklenemedi"),
+          confirmText: "Tamam",
+        });
       } finally {
         setLoadingAccounts(false);
       }
@@ -82,19 +117,36 @@ export default function YeniArzEkle() {
         currency,
       });
 
-      const validPositions = positions.filter((position) => position.accountId && position.lotCount);
+      const validPositions = positions.filter((position) => position.accountId && position.requestedLotCount);
       for (const position of validPositions) {
         await createIpoPosition(createdIpo.id, {
           accountId: Number(position.accountId),
-          lotCount: Number(position.lotCount),
+          requestedLotCount: Number(position.requestedLotCount),
           buyPrice: position.buyPrice ? Number(position.buyPrice) : Number(offeringPrice),
           notes: position.notes || undefined,
         });
       }
 
-      router.push(`/halkaArzListesi/${createdIpo.id}`);
+      openModal({
+        variant: "success",
+        tone: "success",
+        title: "Arz Oluşturuldu",
+        description: "Yeni halka arz ve hesap satırları kaydedildi.",
+        confirmText: "Detaya Git",
+        onConfirm: () => {
+          closeModal();
+          router.push(`/halkaArzListesi/${createdIpo.id}`);
+        },
+      });
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Arz kaydedilemedi");
+      openModal({
+        variant: "error",
+        tone: "danger",
+        title: "Arz Kaydedilemedi",
+        description: extractErrorMessage(saveError, "Arz kaydedilemedi"),
+        confirmText: "Tamam",
+      });
     } finally {
       setSaving(false);
     }
@@ -209,8 +261,8 @@ export default function YeniArzEkle() {
                       </label>
 
                       <label className="block">
-                        <span className="mb-2 block text-sm text-white/70">Lot Adedi</span>
-                        <input value={position.lotCount} onChange={(event) => updatePosition(index, "lotCount", event.target.value)} type="number" min="1" className="w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-white outline-none" />
+                        <span className="mb-2 block text-sm text-white/70">Talep Edilen Lot</span>
+                        <input value={position.requestedLotCount} onChange={(event) => updatePosition(index, "requestedLotCount", event.target.value)} type="number" min="1" className="w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-white outline-none" />
                       </label>
 
                       <label className="block">
@@ -245,7 +297,7 @@ export default function YeniArzEkle() {
                 </button>
               </div>
               <div className="mt-8 text-red-200 text-sm">
-                * Lot fiyatı boş bırakıldığında otomatik olarak Arz fiyatı ile kaydedilecektir.
+                * İlk girilen lot talep edilen lot olarak kaydedilir. Satın alınan lot detay ekranında sonradan güncellenir.
               </div>
             </section>
           </form>
@@ -265,6 +317,17 @@ export default function YeniArzEkle() {
           }
         }
       `}</style>
+
+      <AppModal
+        open={modalState.open}
+        variant={modalState.variant}
+        tone={modalState.tone}
+        title={modalState.title}
+        description={modalState.description}
+        confirmText={modalState.confirmText}
+        onConfirm={modalState.onConfirm}
+        onClose={closeModal}
+      />
     </div>
   );
 }

@@ -49,6 +49,12 @@ public class IpoController {
         return ipoService.getIpoPortfolio(ipoId);
     }
 
+    @DeleteMapping("/{ipoId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteIpo(@PathVariable Long ipoId) {
+        ipoService.deleteIpo(ipoId);
+    }
+
     @GetMapping("/{ipoId}/portfolio-table")
     public IpoPortfolioResponseDto getIpoPortfolioTable(@PathVariable Long ipoId) {
         return ipoService.getIpoPortfolio(ipoId);
